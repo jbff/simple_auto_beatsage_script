@@ -7,10 +7,13 @@ A Python script for automatically generating Beat Saber maps from local music fi
 ## Features
 
 - Automate the process of creating Beat Saber maps from your local music files
-- Support for multiple audio formats (mp3, ogg, flac, wav, m4a, etc.)
+- Support for multiple audio formats (mp3, ogg, flac, wav, m4a, opus, webm, weba, oga, mid, amr, aac, wma)
 - Configurable difficulty levels, play modes, and environment settings
 - Batch processing of entire music directories
 - Automatic metadata extraction from audio files
+- Smart filename generation using ID3 tags (Title - Artist format)
+- Colorized terminal output with progress indicators 🎵
+- Automatic zip extraction and cleanup
 - Supports Patreon features via cookies if you are logged in/connected in your browser
 
 ## Dependencies
@@ -81,21 +84,28 @@ python main.py -i /path/to/music/folder -o /path/to/output/folder -d Hard,Expert
 ### Available Environments
 
 - DefaultEnvironment
-- Origins (Origins)
-- TriangleEnvironment (Triangle)
-- NiceEnvironment (Nice)
-- BigMirrorEnvironment (Big Mirror)
-- DragonsEnvironment (Imagine Dragons)
-- KDAEnvironment (K/DA)
-- MonstercatEnvironment (Monstercat)
-- CrabRaveEnvironment (Crab Rave)
-- PanicEnvironment (Panic at the Disco!)
-- RocketEnvironment (Rocket League)
-- GreenDayEnvironment (Green Day)
-- GreenDayGrenadeEnvironment (Green Day Grenade)
-- TimbalandEnvironment (Timbaland)
-- FitBeatEnvironment (FitBeat)
-- LinkinParkEnvironment (Linkin Park)
+- Origins
+- Triangle (TriangleEnvironment)
+- Nice (NiceEnvironment)
+- Big Mirror (BigMirrorEnvironment)
+- Imagine Dragons (DragonsEnvironment)
+- K/DA (KDAEnvironment)
+- Monstercat (MonstercatEnvironment)
+- Crab Rave (CrabRave)
+- Panic! (PanicEnvironment)
+- Rocket League (RocketEnvironment)
+- Green Day (GreenDayEnvironment)
+- Green Day Grenade (GreenDayGrenadeEnvironment)
+- Timbaland (TimbalandEnvironment)
+- FitBeat (FitBeatEnvironment)
+- Linkin Park (LinkinParkEnvironment)
+- BTS (BTSEnvironment)
+- Kaleidoscope (KaleidoscopeEnvironment)
+- Interscope (InterscopeEnvironment)
+- Skrillex (SkrillexEnvironment)
+- Billie (BillieEnvironment)
+- Halloween (HalloweenEnvironment)
+- Lady Gaga (GagaEnvironment)
 
 ### Available Models
 
@@ -113,8 +123,22 @@ python main.py -i /path/to/music/folder -o /path/to/output/folder -d Hard,Expert
 
 The script:
 1. Scans the input directory for compatible audio files
-2. Extracts metadata (title, artist, cover art) from each file
-3. Uploads the file to Beat Sage with your specified settings
-4. Polls for completion
-5. Downloads the generated Beat Saber map as a zip file to the output directory
+2. For each file:
+   - Extracts metadata (title, artist) from ID3 tags
+   - Creates smart filenames based on metadata (Title - Artist)
+   - Uploads the file to Beat Sage with your specified settings
+   - Displays real-time progress with colorized indicators
+   - Downloads the generated Beat Saber map
+   - Automatically extracts the map to a named folder
+   - Cleans up temporary zip files
+3. Provides clear visual feedback throughout the process with emojis and colors
+
+## Enhanced User Interface
+
+The script provides a rich terminal interface with:
+- 🎵 Colorized output (when supported by your terminal)
+- ⚙️ Real-time progress indicators
+- ✨ Clear status messages
+- 📁 Smart file organization
+- ⏭️ Skip detection for existing maps
 
