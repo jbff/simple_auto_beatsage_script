@@ -37,10 +37,35 @@ import sys
 import time
 from typing import Dict, List, Optional, Tuple, Union
 from pathlib import Path
+import zipfile
 
 import browsercookie
 import requests
 from tinytag import TinyTag
+
+# Check if terminal supports colors
+use_colors = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
+
+# Define color codes
+GREEN = '\033[92m' if use_colors else ''
+YELLOW = '\033[93m' if use_colors else ''
+BLUE = '\033[94m' if use_colors else ''
+CYAN = '\033[96m' if use_colors else ''
+BOLD = '\033[1m' if use_colors else ''
+RESET = '\033[0m' if use_colors else ''
+
+# Define emojis
+MUSIC = '🎵'
+UPLOAD = '📤'
+PROCESS = '⚙️'
+DOWNLOAD = '📥'
+EXTRACT = '📂'
+CHECK = '✅'
+DONE = '✨'
+WARNING = '⚠️'
+SKIP = '⏭️'
+ERROR = '❌'
+SUCCESS = '🎉'
 
 # API Configuration
 base_url = 'https://beatsage.com'
@@ -88,10 +113,52 @@ def get_mp3_tag(file: Union[str, Path]) -> Tuple[str, str, bytes]:
         tag = TinyTag.get(file, image=True)
         title = tag.title or ''
         artist = tag.artist or ''
-        cover = tag.get_image() or b''
+        cover = tag.images.any.data or b''
         return title, artist, cover
     except Exception as e:
         raise RuntimeError(f"Failed to read MP3 tags from {file}: {str(e)}")
+
+def sanitize_filename(filename: str) -> str:
+    """
+    Sanitize a string to be used as a filename.
+    
+    Args:
+        filename: The string to sanitize
+        
+    Returns:
+        A sanitized string safe for use as a filename
+    """
+    # Replace invalid characters with underscores
+    invalid_chars = '<>:"/\\|?*'
+    for char in invalid_chars:
+        filename = filename.replace(char, '_')
+    # Remove leading/trailing spaces and dots
+    filename = filename.strip('. ')
+    # Replace multiple spaces with single space
+    filename = ' '.join(filename.split())
+    return filename
+
+def get_output_filename(file: Union[str, Path]) -> str:
+    """
+    Get the output filename based on ID3 tags.
+    
+    Args:
+        file: Path to the audio file
+        
+    Returns:
+        A sanitized filename in the format "Track - Artist"
+    """
+    title, artist, _ = get_mp3_tag(file)
+    
+    # If either tag is missing, use the original filename
+    if not title or not artist:
+        return Path(file).stem
+    
+    # Sanitize both title and artist
+    title = sanitize_filename(title)
+    artist = sanitize_filename(artist)
+    
+    return f"{title} - {artist}"
 
 def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, modes: str, 
            events: str, env: str, tag: str) -> None:
@@ -121,15 +188,16 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
     """
     try:
         audio_title, audio_artist, cover_art = get_mp3_tag(file)
-        filename = Path(file).stem
-        if not audio_title:
-            audio_title = filename
-            
-        print(f'Processing file: "{filename}"')
+        original_filename = Path(file).stem
+        output_filename = get_output_filename(file)
+        
+        # If we're using the original filename, let the user know
+        if output_filename == original_filename:
+            print(f"{YELLOW}{WARNING} No valid ID3 tags found, using original filename: {BLUE}{original_filename}{RESET}")
         
         payload = {
-            'audio_metadata_title': audio_title,
-            'audio_metadata_artist': audio_artist,
+            'audio_metadata_title': audio_title or original_filename,
+            'audio_metadata_artist': audio_artist or 'Unknown Artist',
             'difficulties': diff,
             'modes': modes,
             'events': events,
@@ -148,7 +216,9 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         session = requests.Session()
         session.cookies.update(cj)
         
+        print(f"{YELLOW}{UPLOAD} Uploading audio file to BeatSage...{RESET}", end='', flush=True)
         response = session.post(create_url, headers=headers_beatsage, data=payload, files=files)
+        print(f" {GREEN}{CHECK} DONE{RESET}")
         
         if response.status_code == 413:
             raise RuntimeError("File size or song length limit exceeded (32MB, 10min for non-Patreon supporters)")
@@ -159,33 +229,74 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         heart_url = f"{base_url}/beatsaber_custom_level_heartbeat/{map_id}"
         download_url = f"{base_url}/beatsaber_custom_level_download/{map_id}"
         
-        print("Processing", end='', flush=True)
+        print(f"{YELLOW}{PROCESS} Generating map...{RESET}", end='', flush=True)
         max_attempts = 60  # 3 minutes maximum
         attempt = 0
         
         while attempt < max_attempts:
             heartbeat_response = session.get(heart_url, headers=headers_beatsage)
             heartbeat_response.raise_for_status()
-            status = json.loads(heartbeat_response.text)['status']
+            status_data = json.loads(heartbeat_response.text)
+            status = status_data['status']
             
             if status == "DONE":
+                print(f" {GREEN}{CHECK} DONE{RESET}")
                 break
             elif status == "ERROR":
                 raise RuntimeError("Map generation failed")
                 
+            # If progress info is available in the response
+            if 'progress' in status_data and status_data['progress'] is not None:
+                progress = float(status_data['progress'])
+                percent_complete = int(progress * 100)
+                print(f"\r{YELLOW}{PROCESS} Generating map...{RESET} {percent_complete}%", end='', flush=True)
+            else:
+                # No progress info available
+                print('.', end='', flush=True)
+                    
             time.sleep(3)
-            print('.', end='', flush=True)
             attempt += 1
         else:
             raise RuntimeError("Map generation timed out")
             
-        print('\nFile processing complete\n---------------------------\n')
-        
-        response = session.get(download_url, headers=headers_beatsage)
+        print(f"{YELLOW}{DOWNLOAD} Downloading generated map...{RESET}", end='', flush=True)
+        response = session.get(download_url, headers=headers_beatsage, stream=True)
         response.raise_for_status()
         
-        output_path = Path(outputdir) / f"{filename}.zip"
-        output_path.write_bytes(response.content)
+        # Get content length if available
+        total_size = int(response.headers.get('content-length', 0))
+        
+        # Write the zip file first
+        output_path = Path(outputdir) / f"{output_filename}.zip"
+        
+        if total_size > 0:
+            with open(output_path, 'wb') as f:
+                downloaded = 0
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+        else:
+            # If content length is unknown, just save the file
+            output_path.write_bytes(response.content)
+            
+        print(f" {GREEN}{CHECK} DONE{RESET}")
+        
+        # Create the extraction directory with the same basename
+        extract_dir = Path(outputdir) / output_filename
+        
+        # Extract the zip file
+        print(f"{YELLOW}{EXTRACT} Extracting map files...{RESET}", end='', flush=True)
+        with zipfile.ZipFile(output_path, 'r') as zip_ref:
+            zip_ref.extractall(extract_dir)
+            
+        # Remove the original zip file if extraction was successful
+        if extract_dir.exists():
+            output_path.unlink()
+            
+        print(f" {GREEN}{CHECK} DONE{RESET}")
+        print(f"{GREEN}{MUSIC} Map generation complete, {BLUE}{output_filename}{RESET} saved in {CYAN}{extract_dir}{RESET} {DONE}")
+        print(f"{BOLD}---------------------------{RESET}")
         
     except requests.exceptions.RequestException as e:
         raise RuntimeError(f"Network error occurred: {str(e)}")
@@ -216,7 +327,7 @@ def get_args() -> argparse.Namespace:
     parser.add_argument('--events', '-e', type=str, default='DotBlocks,Obstacles,Bombs',
                        help='Comma-separated events: DotBlocks,Obstacles,Bombs')
     parser.add_argument('--environment', '-env', type=str, default='DefaultEnvironment',
-                       help='Environment name (e.g., DefaultEnvironment, Origins, etc.)')
+                       help='Environment name: DefaultEnvironment, Origins, Triangle, BigMirror, NiceEnvironment, KDAEnvironment, MonstercatEnvironment, DragonsEnvironment, CrabRave, PanicEnvironment, RocketEnvironment, GreenDay, GreenDayGrenadeEnvironment, TimbalandEnvironment, FitBeat, LinkinParkEnvironment, BTSEnvironment, KaleidoscopeEnvironment, InterscopeEnvironment, SkrillexEnvironment, BillieEnvironment, HalloweenEnvironment, GagaEnvironment')
     parser.add_argument('--model_tag', '-t', type=str, default='v2',
                        help='Model version: v1, v2, v2-flow')
     
@@ -263,27 +374,28 @@ def process_files(args: argparse.Namespace) -> None:
         return
         
     total_files = len(audio_files)
-    print(f"Found {total_files} audio files to process")
     
     for idx, file in enumerate(audio_files, 1):
-        output_zip = args.output / f"{file.stem}.zip"
-        if output_zip.exists():
-            print(f"Skipping {file.name} - output already exists")
+        output_filename = get_output_filename(file)
+        output_zip = args.output / f"{output_filename}.zip"
+        output_dir = args.output / output_filename
+        if output_zip.exists() or output_dir.exists():
+            print(f"{YELLOW}{SKIP} Skipping {file.name} - output already exists{RESET}")
             continue
             
-        print(f"\nProcessing file {idx}/{total_files}: {file.name}")
+        print(f"\n{BOLD}Processing file {idx}/{total_files}: {BLUE}{file.name}{RESET}")
         try:
             get_map(file, args.output, args.difficulties, args.modes,
                    args.events, args.environment, args.model_tag)
         except Exception as e:
-            print(f"Error processing {file.name}: {str(e)}")
+            print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
             continue
 
 if __name__ == '__main__':
     try:
         args = get_args()
         process_files(args)
-        print('\nAll files processed!')
+        print(f"\n{GREEN}{SUCCESS} All files processed! {DONE}{RESET}")
     except Exception as e:
-        print(f"Error: {str(e)}", file=sys.stderr)
+        print(f"{YELLOW}{ERROR} Error: {str(e)}{RESET}", file=sys.stderr)
         sys.exit(1)
