@@ -1,9 +1,12 @@
+#!/usr/bin/env python
+
 import argparse
 import json
 import os
 import sys
 import time
 
+import browsercookie
 import requests
 from tinytag import TinyTag
 
@@ -66,9 +69,19 @@ def get_map(file, outputdir, diff, modes, events, env, tag):
             "audio_file": ("audio_file", open(file, "rb").read(), "audio/mpeg"),
             "cover_art": ("cover_art", cover_art, "image/jpeg")
         }
-    response = requests.request("POST", create_url, headers=headers_beatsage, data=payload, files=files)
+
+    # load cookies from all supported/findable browsers
+    cj = browsercookie.load()
+
+    # create a session with the cookies
+    session = requests.Session()
+    session.cookies.update(cj)
+    
+    # create post request using session with cookies
+    response = session.post(create_url, headers=headers_beatsage, data=payload, files=files)
+
     if response.status_code == 413:
-        print("Error:File Limits 32MB or 10min")
+        print("Error: You hit a file size or song length limit (default 32MB, 10min for non Patreon  supporters")
         return
     try:
         response.raise_for_status()
@@ -79,13 +92,13 @@ def get_map(file, outputdir, diff, modes, events, env, tag):
     heart_url = base_url + "/beatsaber_custom_level_heartbeat/" + map_id
     download_url = base_url + "/beatsaber_custom_level_download/" + map_id
     sys.stdout.write("Processing")
-    while json.loads(requests.request("GET", heart_url, headers=headers_beatsage).text)['status'] != "DONE":
+    while json.loads(session.get(heart_url, headers=headers_beatsage).text)['status'] != "DONE":
         time.sleep(3)
         sys.stdout.write('.')
         sys.stdout.flush()
     print('')
     print('File: "' + filename + '" process done\n---------------------------\n ')
-    response = requests.request("GET", download_url, headers=headers_beatsage)
+    response = session.get(download_url, headers=headers_beatsage)
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError as err:
@@ -145,5 +158,5 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
     finally:
-        os.system('pause')
+#       os.system('pause')
         sys.exit()
