@@ -113,7 +113,10 @@ def get_mp3_tag(file: Union[str, Path]) -> Tuple[str, str, bytes]:
         tag = TinyTag.get(file, image=True)
         title = tag.title or ''
         artist = tag.artist or ''
-        cover = tag.images.any.data or b''
+        if not tag.images.any is None:
+            cover = tag.images.any.data or b''
+        else:
+            cover = b''
         return title, artist, cover
     except Exception as e:
         raise RuntimeError(f"Failed to read MP3 tags from {file}: {str(e)}")
