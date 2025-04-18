@@ -230,7 +230,7 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         download_url = f"{base_url}/beatsaber_custom_level_download/{map_id}"
         
         print(f"{YELLOW}{PROCESS} Generating map...{RESET}", end='', flush=True)
-        max_attempts = 60  # 3 minutes maximum
+        max_attempts = 75  # 17.5 minutes maximum
         attempt = 0
         
         while attempt < max_attempts:
@@ -244,17 +244,11 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
                 break
             elif status == "ERROR":
                 raise RuntimeError("Map generation failed")
-                
-            # If progress info is available in the response
-            if 'progress' in status_data and status_data['progress'] is not None:
-                progress = float(status_data['progress'])
-                percent_complete = int(progress * 100)
-                print(f"\r{YELLOW}{PROCESS} Generating map...{RESET} {percent_complete}%", end='', flush=True)
-            else:
-                # No progress info available
-                print('.', end='', flush=True)
+
+            # No progress info available
+            print('.', end='', flush=True)
                     
-            time.sleep(3)
+            time.sleep(14)
             attempt += 1
         else:
             raise RuntimeError("Map generation timed out")
