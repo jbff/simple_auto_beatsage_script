@@ -15,6 +15,7 @@ A Python script for automatically generating Beat Saber maps from local music fi
 - Colorized terminal output with progress indicators 🎵
 - Automatic zip extraction and cleanup
 - Supports Patreon features via cookies if you are logged in/connected in your browser
+- Automatic lighting events generation for enhanced visual experience
 
 ## Dependencies
 
@@ -55,11 +56,13 @@ python main.py -i /path/to/music/folder
 
 This will:
 - Process all supported audio files in the specified directory
-- Generate maps with Hard, Expert, ExpertPlus, and Normal difficulties
-- Include Standard, 90Degree, NoArrows, and OneSaber modes
-- Add DotBlocks, Obstacles, and Bombs as events
+- Generate maps with Expert and ExpertPlus difficulties
+- Include Standard mode
+- Add DotBlocks and Obstacles as events
+- Use the FitBeat environment
 - Use the v2 model
 - Save output zip files to the same input directory
+- Generate automatic lighting events for enhanced visual experience
 
 ### Advanced Usage
 
@@ -75,37 +78,37 @@ python main.py -i /path/to/music/folder -o /path/to/output/folder -d Hard,Expert
 |----------|-------|-------------|---------|
 | `--input` | `-i` | Input folder containing music files (required) | / |
 | `--output` | `-o` | Output folder for the generated maps | Same as input folder |
-| `--difficulties` | `-d` | Comma-separated list of difficulties | Hard,Expert,ExpertPlus,Normal |
-| `--modes` | `-m` | Comma-separated list of play modes | Standard,90Degree,NoArrows,OneSaber |
-| `--events` | `-e` | Comma-separated list of events | DotBlocks,Obstacles,Bombs |
-| `--environment` | `-env` | Environment for the generated maps | DefaultEnvironment |
+| `--difficulties` | `-d` | Comma-separated list of difficulties | Expert,ExpertPlus |
+| `--modes` | `-m` | Comma-separated list of play modes | Standard |
+| `--events` | `-e` | Comma-separated list of events | DotBlocks,Obstacles |
+| `--environment` | `-env` | Environment for the generated maps | FitBeatEnvironment |
 | `--model_tag` | `-t` | Model version to use | v2 |
 
 ### Available Environments
 
 - DefaultEnvironment
 - Origins
-- Triangle (TriangleEnvironment)
-- Nice (NiceEnvironment)
-- Big Mirror (BigMirrorEnvironment)
-- Imagine Dragons (DragonsEnvironment)
-- K/DA (KDAEnvironment)
-- Monstercat (MonstercatEnvironment)
-- Crab Rave (CrabRave)
-- Panic! (PanicEnvironment)
-- Rocket League (RocketEnvironment)
-- Green Day (GreenDayEnvironment)
-- Green Day Grenade (GreenDayGrenadeEnvironment)
-- Timbaland (TimbalandEnvironment)
-- FitBeat (FitBeatEnvironment)
-- Linkin Park (LinkinParkEnvironment)
-- BTS (BTSEnvironment)
-- Kaleidoscope (KaleidoscopeEnvironment)
-- Interscope (InterscopeEnvironment)
-- Skrillex (SkrillexEnvironment)
-- Billie (BillieEnvironment)
-- Halloween (HalloweenEnvironment)
-- Lady Gaga (GagaEnvironment)
+- TriangleEnvironment
+- BigMirrorEnvironment
+- NiceEnvironment
+- DragonsEnvironment
+- KDAEnvironment
+- MonstercatEnvironment
+- CrabRaveEnvironment
+- PanicEnvironment
+- RocketEnvironment
+- GreenDayEnvironment
+- GreenDayGrenadeEnvironment
+- TimbalandEnvironment
+- FitBeatEnvironment
+- LinkinParkEnvironment
+- BTSEnvironment
+- KaleidoscopeEnvironment
+- InterscopeEnvironment
+- SkrillexEnvironment
+- BillieEnvironment
+- HalloweenEnvironment
+- GagaEnvironment
 
 ### Available Models
 
@@ -130,6 +133,7 @@ The script:
    - Displays real-time progress with colorized indicators
    - Downloads the generated Beat Saber map
    - Automatically extracts the map to a named folder
+   - Generates automatic lighting events for enhanced visuals
    - Cleans up temporary zip files
 3. Provides clear visual feedback throughout the process with emojis and colors
 
@@ -141,4 +145,4 @@ The script provides a rich terminal interface with:
 - ✨ Clear status messages
 - 📁 Smart file organization
 - ⏭️ Skip detection for existing maps
-
+- 💡 Automatic lighting generation feedback
