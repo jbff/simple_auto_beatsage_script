@@ -1,144 +1,15 @@
-# Simple Auto BeatSage Script
+## Simple Auto BeatSage Script From Local Files ##
+**Note:Only For Study and no way related to beatsage official**
 
-A Python script for automatically generating Beat Saber maps from local music files using [Beat Sage](https://beatsage.com/).
+- No Gui,Just upload music file to generate maps (Limit 10min or 30MB)
 
-> **Note:** This is a fork of [rote66/simple_auto_beatsage_script](https://github.com/rote66/simple_auto_beatsage_script). This project is not officially affiliated with Beat Sage.
+---------------------
+**Usage**:
 
-## Features
+Simple way:
 
-- Automate the process of creating Beat Saber maps from your local music files
-- Support for multiple audio formats (mp3, ogg, flac, wav, m4a, opus, webm, weba, oga, mid, amr, aac, wma)
-- Configurable difficulty levels, play modes, and environment settings
-- Batch processing of entire music directories
-- Automatic metadata extraction from audio files
-- Smart filename generation using ID3 tags (Title - Artist format)
-- Colorized terminal output with progress indicators 🎵
-- Automatic zip extraction and cleanup
-- Supports Patreon features via cookies if you are logged in/connected in your browser
+- Drop music file folder to exe,and default get all available modes,events,difficulties,v2 model. The output folder is the input folder.
 
-## Dependencies
+Customized:
 
-The script requires the following Python packages:
-
-- browsercookie==0.8.1
-- requests==2.32.3
-- tinytag==2.1.0
-
-## Installation
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/jbff/simple_auto_beatsage_script.git
-   cd simple_auto_beatsage_script
-   ```
-
-2. Set up a virtual environment (recommended):
-   ```bash
-   python -m venv venv
-   source venv/bin/activate
-   ```
-
-3. Install the required dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Usage
-
-### Simple Usage
-
-Process all music files in a directory with default settings:
-
-```bash
-python main.py -i /path/to/music/folder
-```
-
-This will:
-- Process all supported audio files in the specified directory
-- Generate maps with Hard, Expert, ExpertPlus, and Normal difficulties
-- Include Standard, 90Degree, NoArrows, and OneSaber modes
-- Add DotBlocks, Obstacles, and Bombs as events
-- Use the v2 model
-- Save output zip files to the same input directory
-
-### Advanced Usage
-
-Customize the behavior with command-line arguments:
-
-```bash
-python main.py -i /path/to/music/folder -o /path/to/output/folder -d Hard,Expert -m Standard -e DotBlocks -env DefaultEnvironment -t v2
-```
-
-## Command-Line Arguments
-
-| Argument | Short | Description | Default |
-|----------|-------|-------------|---------|
-| `--input` | `-i` | Input folder containing music files (required) | / |
-| `--output` | `-o` | Output folder for the generated maps | Same as input folder |
-| `--difficulties` | `-d` | Comma-separated list of difficulties | Hard,Expert,ExpertPlus,Normal |
-| `--modes` | `-m` | Comma-separated list of play modes | Standard,90Degree,NoArrows,OneSaber |
-| `--events` | `-e` | Comma-separated list of events | DotBlocks,Obstacles,Bombs |
-| `--environment` | `-env` | Environment for the generated maps | DefaultEnvironment |
-| `--model_tag` | `-t` | Model version to use | v2 |
-
-### Available Environments
-
-- DefaultEnvironment
-- Origins
-- Triangle (TriangleEnvironment)
-- Nice (NiceEnvironment)
-- Big Mirror (BigMirrorEnvironment)
-- Imagine Dragons (DragonsEnvironment)
-- K/DA (KDAEnvironment)
-- Monstercat (MonstercatEnvironment)
-- Crab Rave (CrabRave)
-- Panic! (PanicEnvironment)
-- Rocket League (RocketEnvironment)
-- Green Day (GreenDayEnvironment)
-- Green Day Grenade (GreenDayGrenadeEnvironment)
-- Timbaland (TimbalandEnvironment)
-- FitBeat (FitBeatEnvironment)
-- Linkin Park (LinkinParkEnvironment)
-- BTS (BTSEnvironment)
-- Kaleidoscope (KaleidoscopeEnvironment)
-- Interscope (InterscopeEnvironment)
-- Skrillex (SkrillexEnvironment)
-- Billie (BillieEnvironment)
-- Halloween (HalloweenEnvironment)
-- Lady Gaga (GagaEnvironment)
-
-### Available Models
-
-- v1 (Original model)
-- v2 (Improved model)
-- v2-flow (Flow-based v2 model)
-
-## Limitations
-
-- File size limit: 32MB
-- Song duration limit: 10 minutes
-- These limits apply to non-Patreon supporters of Beat Sage
-
-## How It Works
-
-The script:
-1. Scans the input directory for compatible audio files
-2. For each file:
-   - Extracts metadata (title, artist) from ID3 tags
-   - Creates smart filenames based on metadata (Title - Artist)
-   - Uploads the file to Beat Sage with your specified settings
-   - Displays real-time progress with colorized indicators
-   - Downloads the generated Beat Saber map
-   - Automatically extracts the map to a named folder
-   - Cleans up temporary zip files
-3. Provides clear visual feedback throughout the process with emojis and colors
-
-## Enhanced User Interface
-
-The script provides a rich terminal interface with:
-- 🎵 Colorized output (when supported by your terminal)
-- ⚙️ Real-time progress indicators
-- ✨ Clear status messages
-- 📁 Smart file organization
-- ⏭️ Skip detection for existing maps
-
+- terminal run exe with argument, -h/--help to get informations

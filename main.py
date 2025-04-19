@@ -35,6 +35,10 @@ import json
 import os
 import sys
 import time
+<<<<<<< HEAD
+=======
+import platform
+>>>>>>> origin/updates-2025
 from typing import Dict, List, Optional, Tuple, Union
 from pathlib import Path
 import zipfile
@@ -113,10 +117,14 @@ def get_mp3_tag(file: Union[str, Path]) -> Tuple[str, str, bytes]:
         tag = TinyTag.get(file, image=True)
         title = tag.title or ''
         artist = tag.artist or ''
+<<<<<<< HEAD
         if not tag.images.any is None:
             cover = tag.images.any.data or b''
         else:
             cover = b''
+=======
+        cover = tag.images.any.data or b''
+>>>>>>> origin/updates-2025
         return title, artist, cover
     except Exception as e:
         raise RuntimeError(f"Failed to read MP3 tags from {file}: {str(e)}")
@@ -395,4 +403,7 @@ if __name__ == '__main__':
         print(f"\n{GREEN}{SUCCESS} All files processed! {DONE}{RESET}")
     except Exception as e:
         print(f"{YELLOW}{ERROR} Error: {str(e)}{RESET}", file=sys.stderr)
-        sys.exit(1)
+    finally:
+        if platform.system() == "Windows":
+            os.system('pause')
+        sys.exit()
