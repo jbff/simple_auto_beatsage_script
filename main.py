@@ -44,6 +44,10 @@ import browsercookie
 import requests
 from tinytag import TinyTag
 
+# To process YouTube URLs from text file
+import yt_dlp
+import tempfile
+
 # Check if terminal supports colors
 use_colors = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
 
@@ -572,11 +576,11 @@ def get_args() -> argparse.Namespace:
     The function handles both full argument parsing and the special case
     where a single argument is provided (assumed to be the input path).
     """
-    parser = argparse.ArgumentParser(description='Simple auto beatsage from local files by rote66')
+    parser = argparse.ArgumentParser(description='Simple auto beatsage from local files or YouTube URLs by rote66')
     parser.add_argument('--input', '-i', type=Path, required=True,
-                       help='Input folder containing audio files')
+                       help='Input path (directory of audio files, single audio file, or text file with YouTube URLs)')
     parser.add_argument('--output', '-o', type=Path, default=None,
-                       help='Output folder for generated maps (defaults to input folder)')
+                       help='Output folder for generated maps (defaults to input directory for directories, or input file directory for files)')
     parser.add_argument('--difficulties', '-d', type=str, default='Expert,ExpertPlus',
                        help='Comma-separated difficulties: Normal,Hard,Expert,ExpertPlus')
     parser.add_argument('--modes', '-m', type=str, default='Standard',
@@ -595,58 +599,122 @@ def get_args() -> argparse.Namespace:
 
 def process_files(args: argparse.Namespace) -> None:
     """
-    Process all audio files in the input directory.
+    Process input based on its type:
+    - If directory: process all audio files in it
+    - If audio file: process that single file
+    - If text file: treat as list of YouTube URLs to download and process
     
     Args:
         args: Parsed command line arguments
         
     Raises:
-        FileNotFoundError: If input directory doesn't exist
+        FileNotFoundError: If input doesn't exist
         RuntimeError: If processing fails for any file
-        
-    The function will:
-    1. Validate input and output directories
-    2. Find all supported audio files
-    3. Process each file, skipping existing outputs
-    4. Handle errors for individual files without stopping the entire process
     """
     if not args.input.exists():
-        raise FileNotFoundError(f"Input directory does not exist: {args.input}")
-        
-    if args.output is None:
-        args.output = args.input
-    else:
-        args.output.mkdir(parents=True, exist_ok=True)
+        raise FileNotFoundError(f"Input does not exist: {args.input}")
         
     # Define supported audio extensions
-    audio_extensions = {'.opus', '.flac', '.webm', '.weba', '.wav', '.ogg', 
-                       '.m4a', '.mp3', '.oga', '.mid', '.amr', '.aac', '.wma'}
+    audio_extensions = {'.mp3','.aiff','.aac','.ogg','.wav','.flac'}
     
-    # Find all audio files
-    audio_files = [f for f in args.input.iterdir() 
-                  if f.suffix.lower() in audio_extensions]
+    # Handle output directory
+    if args.output is None:
+        if args.input.is_file():
+            args.output = args.input.parent
+        else:
+            args.output = args.input
+    else:
+        args.output.mkdir(parents=True, exist_ok=True)
     
-    if not audio_files:
-        print(f"No audio files found in {args.input}")
+    # Handle different input types
+    if args.input.is_dir():
+        # Process all audio files in directory
+        audio_files = [f for f in args.input.iterdir() 
+                      if f.suffix.lower() in audio_extensions]
+        
+        if not audio_files:
+            print(f"No audio files found in {args.input}")
+            return
+            
+        total_files = len(audio_files)
+        
+        for idx, file in enumerate(audio_files, 1):
+            process_single_file(file, args)
+            
+    elif args.input.suffix.lower() in audio_extensions:
+        # Process single audio file
+        process_single_file(args.input, args)
+        
+    elif args.input.suffix.lower() == '.txt':
+        
+        # Read URLs from text file
+        with open(args.input, 'r') as f:
+            urls = [line.strip() for line in f if line.strip()]
+            
+        if not urls:
+            print(f"No URLs found in {args.input}")
+            return
+            
+        total_files = len(urls)
+        
+        # Configure yt-dlp
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }],
+        }
+        
+        for idx, url in enumerate(urls, 1):
+            print(f"\n{BOLD}Processing URL {idx}/{total_files}: {BLUE}{url}{RESET}")
+            try:
+                # Create temporary directory for download
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    ydl_opts['outtmpl'] = str(Path(temp_dir) / '%(title)s.%(ext)s')
+                    
+                    # Download audio
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=True)
+                        audio_file = Path(temp_dir) / f"{info['title']}.mp3"
+                        
+                        if not audio_file.exists():
+                            raise RuntimeError("Failed to download audio file")
+                            
+                        # Process the downloaded file
+                        process_single_file(audio_file, args)
+                        
+            except Exception as e:
+                print(f"{YELLOW}{WARNING} Error processing {url}: {str(e)}{RESET}")
+                continue
+                
+    else:
+        raise RuntimeError(f"Unsupported input type: {args.input}")
+
+def process_single_file(file: Path, args: argparse.Namespace) -> None:
+    """
+    Process a single audio file.
+    
+    Args:
+        file: Path to the audio file
+        args: Parsed command line arguments
+    """
+    output_filename = get_output_filename(file)
+    output_zip = args.output / f"{output_filename}.zip"
+    output_dir = args.output / output_filename
+    
+    if output_zip.exists() or output_dir.exists():
+        print(f"{YELLOW}{SKIP} Skipping {file.name} - output already exists{RESET}")
         return
         
-    total_files = len(audio_files)
-    
-    for idx, file in enumerate(audio_files, 1):
-        output_filename = get_output_filename(file)
-        output_zip = args.output / f"{output_filename}.zip"
-        output_dir = args.output / output_filename
-        if output_zip.exists() or output_dir.exists():
-            print(f"{YELLOW}{SKIP} Skipping {file.name} - output already exists{RESET}")
-            continue
-            
-        print(f"\n{BOLD}Processing file {idx}/{total_files}: {BLUE}{file.name}{RESET}")
-        try:
-            get_map(file, args.output, args.difficulties, args.modes,
-                   args.events, args.environment, args.model_tag)
-        except Exception as e:
-            print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
-            continue
+    print(f"\n{BOLD}Processing file: {BLUE}{file.name}{RESET}")
+    try:
+        get_map(file, args.output, args.difficulties, args.modes,
+               args.events, args.environment, args.model_tag)
+    except Exception as e:
+        print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
+        return
 
 if __name__ == '__main__':
     try:
