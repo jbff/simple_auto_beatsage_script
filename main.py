@@ -16,7 +16,7 @@ Usage Examples:
                   --difficulties Hard,Expert \
                   --modes Standard,90Degree \
                   --events DotBlocks,Obstacles \
-                  --environment DefaultEnvironment \
+                  --environment default \
                   --model_tag v2
 
 Error Handling:
@@ -72,6 +72,65 @@ SKIP = '⏭️'
 ERROR = '❌'
 SUCCESS = '🎉'
 LIGHT = '💡'
+
+# Option mappings
+environments = {
+    'default': 'DefaultEnvironment',
+    'origins': 'Origins',
+    'triangle': 'TriangleEnvironment',
+    'nice': 'NiceEnvironment',
+    'bigmirror': 'BigMirrorEnvironment',
+    'dragons': 'DragonsEnvironment',
+    'kda': 'KDAEnvironment',
+    'monstercat': 'MonstercatEnvironment',
+    'crabrave': 'CrabRaveEnvironment',
+    'panic': 'PanicEnvironment',
+    'rocket': 'RocketEnvironment',
+    'greenday': 'GreenDayEnvironment',
+    'greendaygrenade': 'GreenDayGrenadeEnvironment',
+    'timbaland': 'TimbalandEnvironment',
+    'fitbeat': 'FitBeatEnvironment',
+    'linkinpark': 'LinkinParkEnvironment',
+}
+
+difficulties = {
+    'normal': 'Normal',
+    'norm': 'Normal',
+    'n': 'Normal',
+    'hard': 'Hard',
+    'h': 'Hard',
+    'expert': 'Expert',
+    'ex': 'Expert',
+    'e': 'Expert',
+    'expertplus': 'ExpertPlus',
+    'explus': 'ExpertPlus',
+    'e+': 'ExpertPlus',
+}
+
+modes = {
+    'standard': 'Standard',
+    'std': 'Standard',
+    '90deg': '90Degree',
+    '90': '90Degree',
+    'noarrows': 'NoArrows',
+    'onesaber': 'OneSaber',
+}
+
+events = {
+    'dotblocks': 'DotBlocks',
+    'dots': 'DotBlocks',
+    'obstacles': 'Obstacles',
+    'obs': 'Obstacles',
+    'bombs': 'Bombs',
+}
+
+model_tags = {
+    'one': 'v1',
+    'v1': 'v1',
+    'two': 'v2',
+    'v2': 'v2',
+    'flow': 'v2-flow',
+}
 
 # API Configuration
 base_url = 'https://beatsage.com'
@@ -414,6 +473,32 @@ def get_output_filename(file: Union[str, Path]) -> str:
     
     return f"{title} - {artist}"
 
+def check_beatsage_cookie(cj: browsercookie.cookielib.CookieJar) -> Tuple[bool, Optional[str]]:
+    """
+    Check if there is a valid BeatSage session cookie.
+    
+    Args:
+        cj: CookieJar from browsercookie
+        
+    Returns:
+        Tuple containing:
+        - bool: True if valid cookie found, False otherwise
+        - Optional[str]: Expiry message if cookie found
+    """
+    try:
+        session_cookie = cj._cookies['beatsage.com']['/']['session']
+        expiry = session_cookie.expires
+        if expiry is None:
+            return True, "Session cookie found (no expiry)"
+            
+        cookie_expired = time.time() >= expiry
+        if cookie_expired:
+            return False, f"Session cookie expired on {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(expiry))}"
+        else:
+            return True, f"Session cookie valid until {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(expiry))}"
+    except (KeyError, AttributeError):
+        return False, "No session cookie found"
+
 def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, modes: str, 
            events: str, env: str, tag: str) -> None:
     """
@@ -440,7 +525,7 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
     4. Download the generated map
     5. Save it to the output directory
     6. Add lighting events to all .dat files except Info.dat
-    """
+"""
     try:
         audio_title, audio_artist, cover_art = get_mp3_tag(file)
         original_filename = Path(file).stem
@@ -449,7 +534,7 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         # If we're using the original filename, let the user know
         if output_filename == original_filename:
             print(f"{YELLOW}{WARNING} No valid ID3 tags found, using original filename: {BLUE}{original_filename}{RESET}")
-        
+
         payload = {
             'audio_metadata_title': audio_title or original_filename,
             'audio_metadata_artist': audio_artist or 'Unknown Artist',
@@ -468,6 +553,15 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
 
         # load cookies from all supported/findable browsers
         cj = browsercookie.load()
+        
+        # Check for valid BeatSage session cookie
+        has_valid_cookie, cookie_message = check_beatsage_cookie(cj)
+        if has_valid_cookie:
+            print(f"{GREEN}{CHECK} {cookie_message} - Patreon features should be available{RESET}")
+        else:
+            print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features may not be available{RESET}")
+            print(f"{YELLOW}{WARNING} File size limit: 32MB, Song duration limit: 10 minutes{RESET}")
+            
         session = requests.Session()
         session.cookies.update(cj)
         
@@ -566,6 +660,39 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
     except Exception as e:
         raise RuntimeError(f"Unexpected error: {str(e)}")
 
+def get_option_help(options: Dict[str, str]) -> str:
+    """
+    Generate help text for an option dictionary.
+    
+    Args:
+        options: Dictionary mapping aliases to values
+        
+    Returns:
+        Formatted help text showing all valid options and their aliases
+    """
+
+    # Group aliases by their values
+    value_groups = {}
+    for alias, value in options.items():
+        if value not in value_groups:
+            value_groups[value] = []
+        value_groups[value].append(alias)
+
+    # Format each group
+    groups = []
+    for value, aliases in value_groups.items():
+        # Sort aliases by length (longest first) and alphabetically
+        aliases.sort(key=lambda x: (-len(x), x))
+        # Format as "alias1 [alias2, alias3, ...]"
+        primary = aliases[0]
+        secondary = aliases[1:] if len(aliases) > 1 else []
+        if secondary:
+            groups.append(f"{primary} [{', '.join(secondary)}]")
+        else:
+            groups.append(primary)
+
+    return ', '.join(groups)
+
 def get_args() -> argparse.Namespace:
     """
     Parse command line arguments.
@@ -581,82 +708,76 @@ def get_args() -> argparse.Namespace:
                        help='Input path (directory of audio files, single audio file, or text file with YouTube URLs)')
     parser.add_argument('--output', '-o', type=Path, default=None,
                        help='Output folder for generated maps (defaults to input directory for directories, or input file directory for files)')
-    parser.add_argument('--difficulties', '-d', type=str, default='Expert,ExpertPlus',
-                       help='Comma-separated difficulties: Normal,Hard,Expert,ExpertPlus')
-    parser.add_argument('--modes', '-m', type=str, default='Standard',
-                       help='Comma-separated modes: Standard,90Degree,NoArrows,OneSaber')
-    parser.add_argument('--events', '-e', type=str, default='DotBlocks,Obstacles',
-                       help='Comma-separated events: DotBlocks,Obstacles,Bombs')
-    parser.add_argument('--environment', '-env', type=str, default='FitBeatEnvironment',
-                       help='Environment name: DefaultEnvironment, Origins, TriangleEnvironment, BigMirrorEnvironment, NiceEnvironment, KDAEnvironment, MonstercatEnvironment, DragonsEnvironment, CrabRaveEnvironment, PanicEnvironment, RocketEnvironment, GreenDayEnvironment, GreenDayGrenadeEnvironment, TimbalandEnvironment, FitBeatEnvironment, LinkinParkEnvironment, BTSEnvironment, KaleidoscopeEnvironment, InterscopeEnvironment, SkrillexEnvironment, BillieEnvironment, HalloweenEnvironment, GagaEnvironment')
-    parser.add_argument('--model_tag', '-t', type=str, default='v2',
-                       help='Model version: v1, v2, v2-flow')
+    parser.add_argument('--difficulties', '-d', type=str, default='expert,expertplus',
+                       help=f'Comma-separated difficulties: {get_option_help(difficulties)} (default: expert,expertplus)')
+    parser.add_argument('--modes', '-m', type=str, default='standard',
+                       help=f'Comma-separated modes: {get_option_help(modes)} (default: standard)')
+    parser.add_argument('--events', '-e', type=str, default='dotblocks,obstacles',
+                       help=f'Comma-separated events: {get_option_help(events)} (default: dotblocks,obstacles)')
+    parser.add_argument('--environment', '-env', type=str, default='default',
+                       help=f'Environment name: {get_option_help(environments)} (default: default)')
+    parser.add_argument('--model_tag', '-t', type=str, default='two',
+                       help=f'Model version: {get_option_help(model_tags)} (default: two)')
     
     # Handle the case where a single argument is provided (assumed to be input path)
     if len(sys.argv) == 2 and Path(sys.argv[1]).exists():
         return parser.parse_args(['-i', sys.argv[1]])
-    return parser.parse_args()
+    
+    # Parse arguments and convert option values to lowercase
+    args = parser.parse_args()
+    args.difficulties = args.difficulties.lower()
+    args.modes = args.modes.lower()
+    args.events = args.events.lower()
+    args.environment = args.environment.lower()
+    args.model_tag = args.model_tag.lower()
+    return args
 
-def process_files(args: argparse.Namespace) -> None:
+def prepare_input_files(input_path: Path) -> Tuple[List[Path], Path]:
     """
-    Process input based on its type:
-    - If directory: process all audio files in it
-    - If audio file: process that single file
-    - If text file: treat as list of YouTube URLs to download and process
+    Prepare input files based on input type.
     
     Args:
-        args: Parsed command line arguments
+        input_path: Path to input (directory, file, or text file with YouTube URLs)
+        
+    Returns:
+        List of audio files to process
         
     Raises:
         FileNotFoundError: If input doesn't exist
-        RuntimeError: If processing fails for any file
+        RuntimeError: If input type is unsupported or no valid files found
     """
-    if not args.input.exists():
-        raise FileNotFoundError(f"Input does not exist: {args.input}")
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input does not exist: {input_path}")
         
     # Define supported audio extensions
     audio_extensions = {'.mp3','.aiff','.aac','.ogg','.wav','.flac'}
     
-    # Handle output directory
-    if args.output is None:
-        if args.input.is_file():
-            args.output = args.input.parent
-        else:
-            args.output = args.input
-    else:
-        args.output.mkdir(parents=True, exist_ok=True)
-    
-    # Handle different input types
-    if args.input.is_dir():
+   # Handle different input types
+    if input_path.is_dir():
         # Process all audio files in directory
-        audio_files = [f for f in args.input.iterdir() 
+        audio_files = [f for f in input_path.iterdir() 
                       if f.suffix.lower() in audio_extensions]
         
         if not audio_files:
-            print(f"No audio files found in {args.input}")
-            return
+            raise RuntimeError(f"No audio files found in {input_path}")
             
-        total_files = len(audio_files)
-        
-        for idx, file in enumerate(audio_files, 1):
-            process_single_file(file, args)
-            
-    elif args.input.suffix.lower() in audio_extensions:
+    elif input_path.suffix.lower() in audio_extensions:
         # Process single audio file
-        process_single_file(args.input, args)
+        audio_files = [input_path]
         
-    elif args.input.suffix.lower() == '.txt':
+    elif input_path.suffix.lower() == '.txt':
+        # Process YouTube URLs from text file
+        import yt_dlp
+        import tempfile
+        import shutil
         
         # Read URLs from text file
-        with open(args.input, 'r') as f:
+        with open(input_path, 'r') as f:
             urls = [line.strip() for line in f if line.strip()]
             
         if not urls:
-            print(f"No URLs found in {args.input}")
-            return
+            raise RuntimeError(f"No URLs found in {input_path}")
             
-        total_files = len(urls)
-        
         # Configure yt-dlp
         ydl_opts = {
             'format': 'bestaudio/best',
@@ -665,13 +786,18 @@ def process_files(args: argparse.Namespace) -> None:
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }],
+            'progress_hooks': [lambda d: print(f"\r{YELLOW}{DOWNLOAD} Downloading: {d.get('_percent_str', '?')} {d.get('_speed_str', '')} {d.get('_eta_str', '')}{RESET}", end='', flush=True)],
+            'quiet': True,
+            'no_warnings': True,
         }
         
-        for idx, url in enumerate(urls, 1):
-            print(f"\n{BOLD}Processing URL {idx}/{total_files}: {BLUE}{url}{RESET}")
-            try:
-                # Create temporary directory for download
-                with tempfile.TemporaryDirectory() as temp_dir:
+        # Create temporary directory for downloads
+        temp_dir = tempfile.mkdtemp()
+        audio_files = []
+        
+        try:
+            for url in urls:
+                try:
                     ydl_opts['outtmpl'] = str(Path(temp_dir) / '%(title)s.%(ext)s')
                     
                     # Download audio
@@ -680,46 +806,128 @@ def process_files(args: argparse.Namespace) -> None:
                         audio_file = Path(temp_dir) / f"{info['title']}.mp3"
                         
                         if not audio_file.exists():
-                            raise RuntimeError("Failed to download audio file")
+                            raise RuntimeError(f"Failed to download audio file from {url}")
                             
-                        # Process the downloaded file
-                        process_single_file(audio_file, args)
+                        audio_files.append(audio_file)
+                        print(f"\n{GREEN}{CHECK} Downloaded: {info['title']}{RESET}")
                         
-            except Exception as e:
-                print(f"{YELLOW}{WARNING} Error processing {url}: {str(e)}{RESET}")
-                continue
+                except Exception as e:
+                    print(f"\n{YELLOW}{WARNING} Error downloading {url}: {str(e)}{RESET}")
+                    continue
+                    
+            if not audio_files:
+                raise RuntimeError("No audio files were successfully downloaded")
                 
+        except Exception as e:
+            # Clean up temp directory on error
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            raise e
+            
     else:
-        raise RuntimeError(f"Unsupported input type: {args.input}")
+        raise RuntimeError(f"Unsupported input type: {input_path}")
+        
+    return audio_files
 
-def process_single_file(file: Path, args: argparse.Namespace) -> None:
+def validate_args(args: argparse.Namespace) -> None:
     """
-    Process a single audio file.
+    Validate command line arguments.
     
     Args:
-        file: Path to the audio file
+        args: Parsed command line arguments
+        
+    Raises:
+        ValueError: If any argument is invalid
+    """
+    # Validate environment
+    if args.environment not in environments:
+        raise ValueError(f"Invalid environment: {args.environment}. Must be one of: {get_option_help(environments)}")
+        
+    # Validate difficulties
+    diffs = set(d.strip().lower() for d in args.difficulties.split(','))
+    invalid_diffs = diffs - set(difficulties.keys())
+    if invalid_diffs:
+        raise ValueError(f"Invalid difficulties: {', '.join(invalid_diffs)}. Must be one of: {get_option_help(difficulties)}")
+        
+    # Validate modes
+    modes_list = set(m.strip().lower() for m in args.modes.split(','))
+    invalid_modes = modes_list - set(modes.keys())
+    if invalid_modes:
+        raise ValueError(f"Invalid modes: {', '.join(invalid_modes)}. Must be one of: {get_option_help(modes)}")
+        
+    # Validate events
+    events_list = set(e.strip().lower() for e in args.events.split(','))
+    invalid_events = events_list - set(events.keys())
+    if invalid_events:
+        raise ValueError(f"Invalid events: {', '.join(invalid_events)}. Must be one of: {get_option_help(events)}")
+        
+    # Validate model tag
+    if args.model_tag not in model_tags:
+        raise ValueError(f"Invalid model tag: {args.model_tag}. Must be one of: {get_option_help(model_tags)}")
+
+    # Handle output directory
+    if args.output is None:
+        if args.input.is_file():
+            args.output = args.input.parent
+        else:
+            args.output = args.input
+
+def process_files(audio_files: List[Path], args: argparse.Namespace) -> None:
+    """
+    Process a list of audio files.
+    
+    Args:
+        audio_files: List of audio files to process
         args: Parsed command line arguments
     """
-    output_filename = get_output_filename(file)
-    output_zip = args.output / f"{output_filename}.zip"
-    output_dir = args.output / output_filename
+    total_files = len(audio_files)
     
-    if output_zip.exists() or output_dir.exists():
-        print(f"{YELLOW}{SKIP} Skipping {file.name} - output already exists{RESET}")
-        return
-        
-    print(f"\n{BOLD}Processing file: {BLUE}{file.name}{RESET}")
-    try:
-        get_map(file, args.output, args.difficulties, args.modes,
-               args.events, args.environment, args.model_tag)
-    except Exception as e:
-        print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
-        return
+    # Map all options to their canonical values
+    mapped_diffs = ",".join([difficulties[x] for x in args.difficulties.split(',')])
+    mapped_modes = ",".join([modes[x] for x in args.modes.split(',')])  
+    mapped_events = ",".join([events[x] for x in args.events.split(',')])
+    mapped_env = environments[args.environment]
+    mapped_tag = model_tags[args.model_tag]
+    
+    # Print a colorful summary of the mapping options
+    print(f"\n{BOLD}🎵 Beatmap Generation Options:{RESET}")
+    print(f"  {CYAN}🎚️ Difficulties:{RESET} {GREEN}{mapped_diffs}{RESET}")
+    print(f"  {CYAN}🎮 Game Modes:{RESET} {GREEN}{mapped_modes}{RESET}")
+    print(f"  {CYAN}💡 Events:{RESET} {GREEN}{mapped_events}{RESET}")
+    print(f"  {CYAN}🌍 Environment:{RESET} {GREEN}{mapped_env}{RESET}")
+    print(f"  {CYAN}🤖 Model:{RESET} {GREEN}{mapped_tag}{RESET}")
+    print(f"{BOLD}---------------------------{RESET}\n")
+    
+    for idx, file in enumerate(audio_files, 1):
+        print(f"\n{BOLD}Processing file {idx}/{total_files}: {BLUE}{file.name}{RESET}")
+        try:
+            get_map(file, args.output, mapped_diffs, mapped_modes,
+                   mapped_events, mapped_env, mapped_tag)
+        except Exception as e:
+            print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
+            continue
 
 if __name__ == '__main__':
     try:
+        # Parse arguments
         args = get_args()
-        process_files(args)
+        
+        # Validate arguments
+        validate_args(args)
+
+        # ensure output directory exists and is writable
+        args.output.mkdir(parents=True, exist_ok=True)
+        if not os.access(args.output, os.W_OK):
+            raise PermissionError(f"Output directory is not writable: {args.output}")
+    
+        # Print output directory information
+        print(f"\n{BOLD}📁 Output Directory:{RESET} {CYAN}{args.output}{RESET}")
+ 
+        # Prepare input files
+        audio_files = prepare_input_files(args.input)
+        
+        # Process files
+        process_files(audio_files, args)
+        
         print(f"\n{GREEN}{SUCCESS} All files processed! {DONE}{RESET}")
     except Exception as e:
         print(f"{YELLOW}{ERROR} Error: {str(e)}{RESET}", file=sys.stderr)
