@@ -111,74 +111,49 @@ python main.py -i /path/to/input -o /path/to/output/folder -d Hard,Expert -m Sta
 |----------|-------|-------------|---------|
 | `--input` | `-i` | Input path (directory of audio files, single audio file, or text file with YouTube URLs) | / |
 | `--output` | `-o` | Output folder for the generated maps | Same as input directory for directories, or input file directory for files |
-| `--difficulties` | `-d` | Comma-separated list of difficulties | Expert,ExpertPlus |
-| `--modes` | `-m` | Comma-separated list of play modes | Standard |
-| `--events` | `-e` | Comma-separated list of events | DotBlocks,Obstacles |
-| `--environment` | `-env` | Environment for the generated maps | FitBeatEnvironment |
-| `--model_tag` | `-t` | Model version to use | v2 |
+| `--difficulties` | `-d` | Comma-separated list of difficulties (normal/norm, hard, expert/exp, expertplus/explus) | expert,expertplus |
+| `--modes` | `-m` | Comma-separated list of play modes (standard/std, 90degree/90deg, noarrows, onesaber) | standard |
+| `--events` | `-e` | Comma-separated list of events (dotblocks/dots, obstacles/obs, bombs) | dotblocks,obstacles |
+| `--environment` | `-env` | Environment name (default, origins, triangle, nice, bigmirror, dragons, kda, monstercat, crabrave, panic, rocket, greenday, greendaygrenade, timbaland, fitbeat, linkinpark) | default |
+| `--model_tag` | `-t` | Model version (one/v1, two/v2, flow) | two |
+| `--use-patreon` | `-P` | Require valid BeatSage cookie for Patreon features | false |
 
 ### Available Environments
 
-- DefaultEnvironment
-- Origins
-- TriangleEnvironment
-- BigMirrorEnvironment
-- NiceEnvironment
-- DragonsEnvironment
-- KDAEnvironment
-- MonstercatEnvironment
-- CrabRaveEnvironment
-- PanicEnvironment
-- RocketEnvironment
-- GreenDayEnvironment
-- GreenDayGrenadeEnvironment
-- TimbalandEnvironment
-- FitBeatEnvironment
-- LinkinParkEnvironment
-- BTSEnvironment
-- KaleidoscopeEnvironment
-- InterscopeEnvironment
-- SkrillexEnvironment
-- BillieEnvironment
-- HalloweenEnvironment
-- GagaEnvironment
+- default (DefaultEnvironment)
+- origins (Origins)
+- triangle (TriangleEnvironment)
+- nice (NiceEnvironment)
+- bigmirror (BigMirrorEnvironment)
+- dragons (DragonsEnvironment)
+- kda (KDAEnvironment)
+- monstercat (MonstercatEnvironment)
+- crabrave (CrabRaveEnvironment)
+- panic (PanicEnvironment)
+- rocket (RocketEnvironment)
+- greenday (GreenDayEnvironment)
+- greendaygrenade (GreenDayGrenadeEnvironment)
+- timbaland (TimbalandEnvironment)
+- fitbeat (FitBeatEnvironment)
+- linkinpark (LinkinParkEnvironment)
 
 ### Available Models
 
-- v1 (Original model)
-- v2 (Improved model)
-- v2-flow (Flow-based v2 model)
+- one/v1 (Original model)
+- two/v2 (Improved model)
+- flow (Flow-based v2 model)
 
-## Limitations
+## Patreon Features
 
+The script supports BeatSage Patreon features through browser cookies. To use Patreon features:
+
+1. Log in to BeatSage in your browser
+2. The script will automatically detect your session cookie
+3. Use the `--use-patreon` flag to require Patreon features
+
+If you're not a Patreon supporter, the script will still work with these limitations:
 - File size limit: 32MB
 - Song duration limit: 10 minutes
-- These limits apply to non-Patreon supporters of Beat Sage
-
-## How It Works
-
-The script:
-1. Determines input type (directory, single file, or YouTube URLs)
-2. For directories:
-   - Scans for compatible audio files
-   - Processes each file
-3. For single files:
-   - Processes the file directly
-4. For YouTube URLs:
-   - Downloads audio from each URL using yt-dlp
-   - Converts to MP3 using ffmpeg
-   - Processes the audio file
-   - Cleans up temporary files
-5. For each audio file:
-   - Extracts metadata (title, artist) from ID3 tags
-   - Creates smart filenames based on metadata (Title - Artist)
-   - Uploads the file to Beat Sage with your specified settings
-   - Displays real-time progress with colorized indicators
-   - Downloads the generated Beat Saber map
-   - Automatically extracts the map to a named folder
-   - Generates automatic lighting events for enhanced visuals
-   - Cleans up temporary zip files
-6. Provides clear visual feedback throughout the process with emojis and colors
 
 ## Enhanced User Interface
 
@@ -189,3 +164,9 @@ The script provides a rich terminal interface with:
 - 📁 Smart file organization
 - ⏭️ Skip detection for existing maps
 - 💡 Automatic lighting generation feedback
+- 🔍 Detailed option mapping display
+- 🎭 Patreon status indicators
+
+## Acknowledgments
+
+This project is a fork of [rote66/simple_auto_beatsage_script](https://github.com/rote66/simple_auto_beatsage_script) and includes logic for automatic lighting events from [ItsOrius/LiteMapper](https://github.com/ItsOrius/LiteMapper). I am grateful for their contributions to the Beat Saber mapping community.

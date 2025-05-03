@@ -47,6 +47,7 @@ from tinytag import TinyTag
 # To process YouTube URLs from text file
 import yt_dlp
 import tempfile
+import shutil
 
 # Check if terminal supports colors
 use_colors = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
@@ -96,22 +97,18 @@ environments = {
 difficulties = {
     'normal': 'Normal',
     'norm': 'Normal',
-    'n': 'Normal',
     'hard': 'Hard',
-    'h': 'Hard',
     'expert': 'Expert',
-    'ex': 'Expert',
-    'e': 'Expert',
+    'exp': 'Expert',
     'expertplus': 'ExpertPlus',
     'explus': 'ExpertPlus',
-    'e+': 'ExpertPlus',
 }
 
 modes = {
     'standard': 'Standard',
     'std': 'Standard',
+    '90degree': '90Degree',
     '90deg': '90Degree',
-    '90': '90Degree',
     'noarrows': 'NoArrows',
     'onesaber': 'OneSaber',
 }
@@ -500,7 +497,7 @@ def check_beatsage_cookie(cj: browsercookie.cookielib.CookieJar) -> Tuple[bool, 
         return False, "No session cookie found"
 
 def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, modes: str, 
-           events: str, env: str, tag: str) -> None:
+           events: str, env: str, tag: str, use_patreon: bool = False) -> None:
     """
     Generate a Beat Saber map for an audio file using BeatSage.
     
@@ -512,6 +509,7 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         events: Comma-separated event types to include
         env: Environment name for the map
         tag: Model version tag to use
+        use_patreon: Whether to require a valid BeatSage cookie
         
     Raises:
         RuntimeError: If map generation fails for any reason
@@ -525,7 +523,7 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
     4. Download the generated map
     5. Save it to the output directory
     6. Add lighting events to all .dat files except Info.dat
-"""
+    """
     try:
         audio_title, audio_artist, cover_art = get_mp3_tag(file)
         original_filename = Path(file).stem
@@ -559,8 +557,13 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         if has_valid_cookie:
             print(f"{GREEN}{CHECK} {cookie_message} - Patreon features should be available{RESET}")
         else:
-            print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features may not be available{RESET}")
-            print(f"{YELLOW}{WARNING} File size limit: 32MB, Song duration limit: 10 minutes{RESET}")
+            if use_patreon:
+                print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features required but not available{RESET}")
+                print(f"{YELLOW}{WARNING} Please log in to BeatSage in your browser and try again{RESET}")
+                sys.exit(1)
+            else:
+                print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features may not be available{RESET}")
+                print(f"{YELLOW}{WARNING} File size limit: 32MB, Song duration limit: 10 minutes{RESET}")
             
         session = requests.Session()
         session.cookies.update(cj)
@@ -718,6 +721,8 @@ def get_args() -> argparse.Namespace:
                        help=f'Environment name: {get_option_help(environments)} (default: default)')
     parser.add_argument('--model_tag', '-t', type=str, default='two',
                        help=f'Model version: {get_option_help(model_tags)} (default: two)')
+    parser.add_argument('--use-patreon', '-P', action='store_true',
+                       help='Require valid BeatSage cookie for Patreon features (script will exit if no valid cookie found)')
     
     # Handle the case where a single argument is provided (assumed to be input path)
     if len(sys.argv) == 2 and Path(sys.argv[1]).exists():
@@ -766,11 +771,6 @@ def prepare_input_files(input_path: Path) -> Tuple[List[Path], Path]:
         audio_files = [input_path]
         
     elif input_path.suffix.lower() == '.txt':
-        # Process YouTube URLs from text file
-        import yt_dlp
-        import tempfile
-        import shutil
-        
         # Read URLs from text file
         with open(input_path, 'r') as f:
             urls = [line.strip() for line in f if line.strip()]
@@ -895,13 +895,15 @@ def process_files(audio_files: List[Path], args: argparse.Namespace) -> None:
     print(f"  {CYAN}💡 Events:{RESET} {GREEN}{mapped_events}{RESET}")
     print(f"  {CYAN}🌍 Environment:{RESET} {GREEN}{mapped_env}{RESET}")
     print(f"  {CYAN}🤖 Model:{RESET} {GREEN}{mapped_tag}{RESET}")
+    if args.use_patreon:
+        print(f"  {CYAN}🎭 Patreon:{RESET} {GREEN}Required{RESET}")
     print(f"{BOLD}---------------------------{RESET}\n")
     
     for idx, file in enumerate(audio_files, 1):
         print(f"\n{BOLD}Processing file {idx}/{total_files}: {BLUE}{file.name}{RESET}")
         try:
             get_map(file, args.output, mapped_diffs, mapped_modes,
-                   mapped_events, mapped_env, mapped_tag)
+                   mapped_events, mapped_env, mapped_tag, args.use_patreon)
         except Exception as e:
             print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
             continue
