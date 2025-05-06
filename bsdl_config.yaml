@@ -1,0 +1,23 @@
+# BeatSage Map Generator Configuration
+# Edit this file to customize your map generation settings
+
+# Output directory (leave empty to use same directory as input)
+output: ""
+
+# Difficulties to generate (normal/norm, hard, expert/exp, expertplus/explus)
+difficulties: "expert,expertplus"
+
+# Game modes to generate (standard/std, 90degree/90deg, noarrows, onesaber)
+modes: "standard"
+
+# Events to include (dotblocks/dots, obstacles/obs, bombs)
+events: "dotblocks,obstacles"
+
+# Environment to use (default, origins, triangle, nice, bigmirror, dragons, kda, monstercat, crabrave, panic, rocket, greenday, greendaygrenade, timbaland, fitbeat, linkinpark)
+environment: "default"
+
+# Model version to use (one/v1, two/v2, flow)
+model_tag: "two"
+
+# Whether to require Patreon features (true/false)
+use_patreon: false 

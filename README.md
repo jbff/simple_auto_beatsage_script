@@ -25,13 +25,14 @@ The script requires the following Python packages:
 
 - browsercookie==0.8.1
 - requests==2.32.3
-- tinytag==2.1.0
-- yt-dlp==2024.3.10
+- tinytag==2.1.1
+- yt-dlp==2025.4.30
+- PyYAML==6.0.2
 
 Additionally, for YouTube video processing, you need:
 - ffmpeg (for audio conversion)
 
-## Installation
+## Installation (Command Line Script)
 
 1. Clone this repository:
    ```bash
@@ -66,32 +67,52 @@ Additionally, for YouTube video processing, you need:
    ```
 
 ## Usage
-
-### Process a Directory of Audio Files
+### Command Line Script
 
 Process all music files in a directory with default settings:
 
 ```bash
-python main.py -i /path/to/music/folder
+python bsdl.py -i /path/to/music/folder
 ```
-
-### Process a Single Audio File
 
 Process a single audio file:
 
 ```bash
-python main.py -i /path/to/song.mp3
+python bsdl.py -i /path/to/song.mp3
 ```
 
-### Process YouTube Videos
-
-Create a text file with YouTube URLs (one per line) and process them:
+Process YouTube videos from a text file:
 
 ```bash
-python main.py -i /path/to/urls.txt
+python bsdl.py -i /path/to/urls.txt
 ```
 
-Example urls.txt:
+### Command Line (Windows Executable)
+
+```cmd
+bsdl.exe C:\path\to\music\folder
+```
+
+```cmd
+bsdl.exe C:\path\to\song.mp3
+```
+
+```cmd
+bsdl.exe C:\path\to\urls.txt
+```
+
+### Drag and Drop (Windows)
+
+1. Copy `config_bsdl.yaml` to the same directory as the executable.
+
+2. Edit `config_bsdl.yaml` to specify options to use when dragging/dropping.
+
+3. Drag and drop any of the following onto the executable:
+   - A directory containing audio files
+   - A single audio file
+   - A text file containing YouTube URLs (one per line)
+
+## Example urls.txt:
 ```
 https://www.youtube.com/watch?v=dQw4w9WgXcQ
 https://www.youtube.com/watch?v=oHg5SJYRHA0
@@ -99,10 +120,10 @@ https://www.youtube.com/watch?v=oHg5SJYRHA0
 
 ### Advanced Usage
 
-Customize the behavior with command-line arguments:
+Customize the behavior with command-line arguments (these override config.yaml settings):
 
 ```bash
-python main.py -i /path/to/input -o /path/to/output/folder -d Hard,Expert -m Standard -e DotBlocks -env DefaultEnvironment -t v2
+python bsdl.py -i /path/to/input -o /path/to/output/folder -d hard,exp -m std,noarrows -e dots,bombs1 -env nice -t flow
 ```
 
 ## Command-Line Arguments

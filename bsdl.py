@@ -43,6 +43,7 @@ import zipfile
 import browsercookie
 import requests
 from tinytag import TinyTag
+import yaml
 
 # To process YouTube URLs from text file
 import yt_dlp
@@ -141,17 +142,17 @@ headers_beatsage = {
     'scheme': 'https',
     'accept': '*/*',
     'accept-encoding': 'gzip, deflate, br',
-    'accept-language': 'zh-CN,zh;q=0.9',
+    'accept-language': 'en_US,en;q=0.7',
     'origin': base_url,
     'pragma': 'no-cache',
     'referer': base_url,
-    'sec-ch-ua': '"Not?A_Brand";v="8", "Chromium";v="108", "Google Chrome";v="108"',
+    'sec-ch-ua': '"Chromium";v="136", "Brave";v="136", "Not.A/Brand";v="99"',
     'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
+    'sec-ch-ua-platform': '"Other"',
     'sec-fetch-dest': 'empty',
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-origin',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+    'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 BSDL',
     'x-kl-ajax-request': 'Ajax_Request'
 }
 
@@ -696,45 +697,128 @@ def get_option_help(options: Dict[str, str]) -> str:
 
     return ', '.join(groups)
 
-def get_args() -> argparse.Namespace:
+def load_config() -> Dict:
     """
-    Parse command line arguments.
+    Load configuration from bsdl_config.yaml file.
     
     Returns:
-        Namespace containing parsed arguments
+        Dict containing configuration values
         
-    The function handles both full argument parsing and the special case
-    where a single argument is provided (assumed to be the input path).
+    Raises:
+        FileNotFoundError: If bsdl_config.yaml doesn't exist
+        yaml.YAMLError: If bsdl_config.yaml is invalid
     """
-    parser = argparse.ArgumentParser(description='Simple auto beatsage from local files or YouTube URLs by rote66')
-    parser.add_argument('--input', '-i', type=Path, required=True,
+    # Built-in defaults
+    defaults = {
+        'difficulties': 'expert,expertplus',
+        'modes': 'standard',
+        'events': 'dotblocks,obstacles',
+        'environment': 'default',
+        'model_tag': 'two',
+        'use_patreon': False,
+        'output': ''
+    }
+    
+    config_path = Path(__file__).parent / 'bsdl_config.yaml'
+    if not config_path.exists():
+        return defaults
+        
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+            
+        # Validate required fields
+        required_fields = ['difficulties', 'modes', 'events', 'environment', 'model_tag', 'use_patreon']
+        for field in required_fields:
+            if field not in config:
+                config[field] = defaults[field]
+                
+        return config
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid bsdl_config.yaml: {str(e)}")
+
+def get_args() -> argparse.Namespace:
+    """
+    Parse command line arguments and load config file.
+    
+    Returns:
+        Parsed arguments with config values and their sources
+    """
+    # Load config file for defaults
+    config = load_config()
+    config_exists = Path(__file__).parent / 'bsdl_config.yaml'
+    
+    parser = argparse.ArgumentParser(description='Generate Beat Saber maps using BeatSage')
+    parser.add_argument('--input', '-i', type=Path,
                        help='Input path (directory of audio files, single audio file, or text file with YouTube URLs)')
-    parser.add_argument('--output', '-o', type=Path, default=None,
+    parser.add_argument('--output', '-o', type=Path, default=config['output'],
                        help='Output folder for generated maps (defaults to input directory for directories, or input file directory for files)')
-    parser.add_argument('--difficulties', '-d', type=str, default='expert,expertplus',
-                       help=f'Comma-separated difficulties: {get_option_help(difficulties)} (default: expert,expertplus)')
-    parser.add_argument('--modes', '-m', type=str, default='standard',
-                       help=f'Comma-separated modes: {get_option_help(modes)} (default: standard)')
-    parser.add_argument('--events', '-e', type=str, default='dotblocks,obstacles',
-                       help=f'Comma-separated events: {get_option_help(events)} (default: dotblocks,obstacles)')
-    parser.add_argument('--environment', '-env', type=str, default='default',
-                       help=f'Environment name: {get_option_help(environments)} (default: default)')
-    parser.add_argument('--model_tag', '-t', type=str, default='two',
-                       help=f'Model version: {get_option_help(model_tags)} (default: two)')
-    parser.add_argument('--use-patreon', '-P', action='store_true',
-                       help='Require valid BeatSage cookie for Patreon features (script will exit if no valid cookie found)')
+    parser.add_argument('--difficulties', '-d', type=str, default=config['difficulties'],
+                       help='Comma-separated difficulties (normal/norm, hard, expert/exp, expertplus/explus)')
+    parser.add_argument('--modes', '-m', type=str, default=config['modes'],
+                       help='Comma-separated modes (standard/std, 90degree/90deg, noarrows, onesaber)')
+    parser.add_argument('--events', '-e', type=str, default=config['events'],
+                       help='Comma-separated events (dotblocks/dots, obstacles/obs, bombs)')
+    parser.add_argument('--environment', '-env', type=str, default=config['environment'],
+                       help='Environment name (default, origins, triangle, nice, bigmirror, dragons, kda, monstercat, crabrave, panic, rocket, greenday, greendaygrenade, timbaland, fitbeat, linkinpark)')
+    parser.add_argument('--model_tag', '-t', type=str, default=config['model_tag'],
+                       help='Model version (one/v1, two/v2, flow)')
+    parser.add_argument('--use-patreon', '-P', action='store_true', default=config['use_patreon'],
+                       help='Require valid BeatSage cookie for Patreon features')
     
-    # Handle the case where a single argument is provided (assumed to be input path)
+    # Handle the case where a single argument is provided (assumed to be input path; may be drag and drop)
     if len(sys.argv) == 2 and Path(sys.argv[1]).exists():
-        return parser.parse_args(['-i', sys.argv[1]])
-    
-    # Parse arguments and convert option values to lowercase
+        # Create args namespace with config values
+        args = argparse.Namespace()
+        args.input = Path(sys.argv[1])
+        args.output = Path(config['output']) if config['output'] else None
+        args.difficulties = config['difficulties']
+        args.modes = config['modes']
+        args.events = config['events']
+        args.environment = config['environment']
+        args.model_tag = config['model_tag']
+        args.use_patreon = config['use_patreon']
+        
+        # Add source tracking
+        args._sources = {
+            'input': 'command_line',
+            'output': 'config' if config['output'] else 'default',
+            'difficulties': 'config' if config_exists.exists() else 'default',
+            'modes': 'config' if config_exists.exists() else 'default',
+            'events': 'config' if config_exists.exists() else 'default',
+            'environment': 'config' if config_exists.exists() else 'default',
+            'model_tag': 'config' if config_exists.exists() else 'default',
+            'use_patreon': 'config' if config_exists.exists() else 'default'
+        }
+        return args
+        
+    # Parse command line arguments
     args = parser.parse_args()
+    
+    # If no input specified, show help
+    if not args.input:
+        parser.print_help()
+        sys.exit(1)
+        
+    # Add source tracking
+    args._sources = {
+        'input': 'command_line',
+        'output': 'command_line' if args.output != config['output'] else ('config' if config_exists.exists() else 'default'),
+        'difficulties': 'command_line' if args.difficulties != config['difficulties'] else ('config' if config_exists.exists() else 'default'),
+        'modes': 'command_line' if args.modes != config['modes'] else ('config' if config_exists.exists() else 'default'),
+        'events': 'command_line' if args.events != config['events'] else ('config' if config_exists.exists() else 'default'),
+        'environment': 'command_line' if args.environment != config['environment'] else ('config' if config_exists.exists() else 'default'),
+        'model_tag': 'command_line' if args.model_tag != config['model_tag'] else ('config' if config_exists.exists() else 'default'),
+        'use_patreon': 'command_line' if args.use_patreon != config['use_patreon'] else ('config' if config_exists.exists() else 'default')
+    }
+    
+    # Convert option values to lowercase
     args.difficulties = args.difficulties.lower()
     args.modes = args.modes.lower()
     args.events = args.events.lower()
     args.environment = args.environment.lower()
     args.model_tag = args.model_tag.lower()
+    
     return args
 
 def prepare_input_files(input_path: Path) -> Tuple[List[Path], Path]:
@@ -881,29 +965,11 @@ def process_files(audio_files: List[Path], args: argparse.Namespace) -> None:
     """
     total_files = len(audio_files)
     
-    # Map all options to their canonical values
-    mapped_diffs = ",".join([difficulties[x] for x in args.difficulties.split(',')])
-    mapped_modes = ",".join([modes[x] for x in args.modes.split(',')])  
-    mapped_events = ",".join([events[x] for x in args.events.split(',')])
-    mapped_env = environments[args.environment]
-    mapped_tag = model_tags[args.model_tag]
-    
-    # Print a colorful summary of the mapping options
-    print(f"\n{BOLD}🎵 Beatmap Generation Options:{RESET}")
-    print(f"  {CYAN}🎚️ Difficulties:{RESET} {GREEN}{mapped_diffs}{RESET}")
-    print(f"  {CYAN}🎮 Game Modes:{RESET} {GREEN}{mapped_modes}{RESET}")
-    print(f"  {CYAN}💡 Events:{RESET} {GREEN}{mapped_events}{RESET}")
-    print(f"  {CYAN}🌍 Environment:{RESET} {GREEN}{mapped_env}{RESET}")
-    print(f"  {CYAN}🤖 Model:{RESET} {GREEN}{mapped_tag}{RESET}")
-    if args.use_patreon:
-        print(f"  {CYAN}🎭 Patreon:{RESET} {GREEN}Required{RESET}")
-    print(f"{BOLD}---------------------------{RESET}\n")
-    
     for idx, file in enumerate(audio_files, 1):
         print(f"\n{BOLD}Processing file {idx}/{total_files}: {BLUE}{file.name}{RESET}")
         try:
-            get_map(file, args.output, mapped_diffs, mapped_modes,
-                   mapped_events, mapped_env, mapped_tag, args.use_patreon)
+            get_map(file, args.output, args.mapped_diffs, args.mapped_modes,
+                   args.mapped_events, args.mapped_env, args.mapped_tag, args.use_patreon)
         except Exception as e:
             print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
             continue
@@ -916,13 +982,31 @@ if __name__ == '__main__':
         # Validate arguments
         validate_args(args)
 
+        # Map all options to their canonical values
+        args.mapped_diffs = ",".join([difficulties[x] for x in args.difficulties.split(',')])
+        args.mapped_modes = ",".join([modes[x] for x in args.modes.split(',')])  
+        args.mapped_events = ",".join([events[x] for x in args.events.split(',')])
+        args.mapped_env = environments[args.environment]
+        args.mapped_tag = model_tags[args.model_tag]
+        
+        # Print a colorful summary of the mapping options and their sources
+        print(f"\n{BOLD}🎵 Beatmap Generation Options:{RESET}")
+        print(f"  {CYAN}🎚️ Difficulties:{RESET} {GREEN}{args.mapped_diffs}{RESET} ({args._sources['difficulties']})")
+        print(f"  {CYAN}🎮 Game Modes:{RESET} {GREEN}{args.mapped_modes}{RESET} ({args._sources['modes']})")
+        print(f"  {CYAN}💡 Events:{RESET} {GREEN}{args.mapped_events}{RESET} ({args._sources['events']})")
+        print(f"  {CYAN}🌍 Environment:{RESET} {GREEN}{args.mapped_env}{RESET} ({args._sources['environment']})")
+        print(f"  {CYAN}🤖 Model:{RESET} {GREEN}{args.mapped_tag}{RESET} ({args._sources['model_tag']})")
+        if args.use_patreon:
+            print(f"  {CYAN}🎭 Patreon:{RESET} {GREEN}Required{RESET} ({args._sources['use_patreon']})")
+        print(f"{BOLD}---------------------------{RESET}\n")
+
         # ensure output directory exists and is writable
         args.output.mkdir(parents=True, exist_ok=True)
         if not os.access(args.output, os.W_OK):
             raise PermissionError(f"Output directory is not writable: {args.output}")
     
         # Print output directory information
-        print(f"\n{BOLD}📁 Output Directory:{RESET} {CYAN}{args.output}{RESET}")
+        print(f"\n{BOLD}📁 Output Directory:{RESET} {CYAN}{args.output}{RESET} ({args._sources['output']})")
  
         # Prepare input files
         audio_files = prepare_input_files(args.input)
