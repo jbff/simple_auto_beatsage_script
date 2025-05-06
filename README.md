@@ -23,11 +23,11 @@ A Python script for automatically generating Beat Saber maps from local music fi
 
 The script requires the following Python packages:
 
-- browsercookie==0.8.1
-- requests==2.32.3
-- tinytag==2.1.1
-- yt-dlp==2025.4.30
-- PyYAML==6.0.2
+- browsercookie (to support any Patreon features you may be entitled to)
+- requests (to interface with the BeatSage page)
+- tinytag (to read tags from music files)
+- yt-dlp (to download audio from YouTube URLs)
+- PyYAML (to support using a config file)
 
 Additionally, for YouTube video processing, you need:
 - ffmpeg (for audio conversion)
@@ -51,20 +51,23 @@ Additionally, for YouTube video processing, you need:
    pip install -r requirements.txt
    ```
 
-4. Install ffmpeg (required for YouTube processing):
-   ```bash
-   # On Ubuntu/Debian
-   sudo apt-get install ffmpeg
-   
-   # On Fedora
-   sudo dnf install ffmpeg
-   
-   # On macOS (using Homebrew)
-   brew install ffmpeg
-   
-   # On Windows (using Chocolatey)
-   choco install ffmpeg
-   ```
+## Installation (FFMPEG)
+
+Install ffmpeg (required for YouTube processing):
+
+```bash
+# On Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# On Fedora
+sudo dnf install ffmpeg
+
+# On macOS (using Homebrew)
+brew install ffmpeg
+
+# On Windows (using WinGet)
+winget install ffmpeg
+```
 
 ## Usage
 ### Command Line Script
