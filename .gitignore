@@ -1,2 +1,7 @@
 venv
 __pycache__/
+bsdl
+bsdl.spec
+build
+dist
+bsdl-icon-orig.png
