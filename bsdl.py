@@ -41,6 +41,7 @@ from pathlib import Path
 import zipfile
 
 import browsercookie
+import http.cookiejar
 import requests
 from tinytag import TinyTag
 import yaml
@@ -56,6 +57,7 @@ use_colors = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
 # Define color codes
 GREEN = '\033[92m' if use_colors else ''
 YELLOW = '\033[93m' if use_colors else ''
+RED = '\033[91m' if use_colors else ''
 BLUE = '\033[94m' if use_colors else ''
 CYAN = '\033[96m' if use_colors else ''
 BOLD = '\033[1m' if use_colors else ''
@@ -498,7 +500,7 @@ def check_beatsage_cookie(cj: browsercookie.cookielib.CookieJar) -> Tuple[bool, 
         return False, "No session cookie found"
 
 def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, modes: str, 
-           events: str, env: str, tag: str, use_patreon: bool = False) -> None:
+           events: str, env: str, tag: str, use_patreon: bool = False, cookie_jar: Optional[http.cookiejar.CookieJar] = None) -> None:
     """
     Generate a Beat Saber map for an audio file using BeatSage.
     
@@ -511,6 +513,7 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         env: Environment name for the map
         tag: Model version tag to use
         use_patreon: Whether to require a valid BeatSage cookie
+        cookie_jar: Optional cookie jar to use for requests
         
     Raises:
         RuntimeError: If map generation fails for any reason
@@ -549,25 +552,10 @@ def get_map(file: Union[str, Path], outputdir: Union[str, Path], diff: str, mode
         }
         if cover_art:
             files["cover_art"] = ("cover_art", cover_art, "image/jpeg")
-
-        # load cookies from all supported/findable browsers
-        cj = browsercookie.load()
-        
-        # Check for valid BeatSage session cookie
-        has_valid_cookie, cookie_message = check_beatsage_cookie(cj)
-        if has_valid_cookie:
-            print(f"{GREEN}{CHECK} {cookie_message} - Patreon features should be available{RESET}")
-        else:
-            if use_patreon:
-                print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features required but not available{RESET}")
-                print(f"{YELLOW}{WARNING} Please log in to BeatSage in your browser and try again{RESET}")
-                sys.exit(1)
-            else:
-                print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features may not be available{RESET}")
-                print(f"{YELLOW}{WARNING} File size limit: 32MB, Song duration limit: 10 minutes{RESET}")
             
         session = requests.Session()
-        session.cookies.update(cj)
+        if cookie_jar:
+            session.cookies.update(cookie_jar)
         
         print(f"{YELLOW}{UPLOAD} Uploading audio file to BeatSage...{RESET}", end='', flush=True)
         response = session.post(create_url, headers=headers_beatsage, data=payload, files=files)
@@ -955,13 +943,14 @@ def validate_args(args: argparse.Namespace) -> None:
         else:
             args.output = args.input
 
-def process_files(audio_files: List[Path], args: argparse.Namespace) -> None:
+def process_files(audio_files: List[Path], args: argparse.Namespace, cookie_jar: Optional[http.cookiejar.CookieJar] = None) -> None:
     """
     Process a list of audio files.
     
     Args:
         audio_files: List of audio files to process
         args: Parsed command line arguments
+        cookie_jar: Optional cookie jar to use for requests
     """
     total_files = len(audio_files)
     
@@ -969,7 +958,7 @@ def process_files(audio_files: List[Path], args: argparse.Namespace) -> None:
         print(f"\n{BOLD}Processing file {idx}/{total_files}: {BLUE}{file.name}{RESET}")
         try:
             get_map(file, args.output, args.mapped_diffs, args.mapped_modes,
-                   args.mapped_events, args.mapped_env, args.mapped_tag, args.use_patreon)
+                   args.mapped_events, args.mapped_env, args.mapped_tag, args.use_patreon, cookie_jar)
         except Exception as e:
             print(f"{YELLOW}{WARNING} Error processing {file.name}: {str(e)}{RESET}")
             continue
@@ -981,6 +970,25 @@ if __name__ == '__main__':
         
         # Validate arguments
         validate_args(args)
+
+        # Load and validate cookies if possible or use empty cookie jar
+        try:
+            cookie_jar = browsercookie.load()
+        except Exception as e:
+            print(f"{YELLOW}{WARNING} System browser cookies could not be loaded: {str(e)}{RESET}")
+            cookie_jar = http.cookiejar.CookieJar()
+
+        # Check for valid BeatSage session cookie
+        valid_cookie, cookie_message = check_beatsage_cookie(cookie_jar)
+
+        if not valid_cookie:
+            if args.use_patreon:
+                print(f"{RED}{ERROR} Patreon features required but no valid BeatSage cookie found{RESET}")
+                print(f"{RED}{ERROR} {cookie_message}{RESET}")
+                sys.exit(1)
+            else:
+                print(f"{YELLOW}{WARNING} {cookie_message} - Patreon features may not be available{RESET}")
+                print(f"{YELLOW}{WARNING} File size limit: 32MB, Song duration limit: 10 minutes{RESET}")
 
         # Map all options to their canonical values
         args.mapped_diffs = ",".join([difficulties[x] for x in args.difficulties.split(',')])
@@ -996,9 +1004,10 @@ if __name__ == '__main__':
         print(f"  {CYAN}💡 Events:{RESET} {GREEN}{args.mapped_events}{RESET} ({args._sources['events']})")
         print(f"  {CYAN}🌍 Environment:{RESET} {GREEN}{args.mapped_env}{RESET} ({args._sources['environment']})")
         print(f"  {CYAN}🤖 Model:{RESET} {GREEN}{args.mapped_tag}{RESET} ({args._sources['model_tag']})")
+        print(f"  {CYAN}🎭 BeatSage Cookie:{RESET} {GREEN if valid_cookie else RED}{'Yes' if valid_cookie else 'No'}{RESET}")
         if args.use_patreon:
             print(f"  {CYAN}🎭 Patreon:{RESET} {GREEN}Required{RESET} ({args._sources['use_patreon']})")
-        print(f"{BOLD}---------------------------{RESET}\n")
+        print()
 
         # ensure output directory exists and is writable
         args.output.mkdir(parents=True, exist_ok=True)
@@ -1012,7 +1021,7 @@ if __name__ == '__main__':
         audio_files = prepare_input_files(args.input)
         
         # Process files
-        process_files(audio_files, args)
+        process_files(audio_files, args, cookie_jar)
         
         print(f"\n{GREEN}{SUCCESS} All files processed! {DONE}{RESET}")
     except Exception as e:
