@@ -24,7 +24,7 @@ endif
 # Default target: builds bsdl or bsdl.exe depending on your OS
 all: bsdl$(EXT)
 
-bsdl$(EXT): dist/bsdl$(EXT)
+bsdl$(EXT): dist/bsdl$(EXT) bsdl.py
 	$(COPY_CMD) dist/bsdl$(EXT) bsdl$(EXT)
 
 check-pyinstaller:

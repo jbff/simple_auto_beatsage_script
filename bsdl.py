@@ -35,6 +35,7 @@ import json
 import os
 import sys
 import time
+import platform
 import math
 from typing import Dict, List, Optional, Tuple, Union, Any
 from pathlib import Path
@@ -1027,3 +1028,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"{YELLOW}{ERROR} Error: {str(e)}{RESET}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        if platform.system() == 'Windows':
+            print("Press Enter to exit...")
+            input()
